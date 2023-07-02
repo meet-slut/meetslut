@@ -1,7 +1,7 @@
 """ given url, parse the html and return metadata
 """
 
-from typing import Union, Optional, Dict
+from typing import Union, Optional, Dict, List
 from abc import ABCMeta, abstractmethod
 import re
 import json
@@ -12,6 +12,8 @@ import requests
 from lxml import etree
 from bs4.element import Tag
 from bs4 import BeautifulSoup
+from collections import namedtuple
+ImageItem = namedtuple('ImageItem', 'id, name, url, width, height')
 
 from meetslut.config import HEADERS, TIMEOUT
 
@@ -199,8 +201,35 @@ class ImageFap(AbstractParser):
         super().__init__('ImageFap')
         self.indexed = False
 
-    def _fetch(self, gid: str) -> dict:
-        return
+    def _fetch(self, gid: str) -> Dict:
+        # view=2 means all images in one page
+        url = f"https://www.imagefap.com/pictures/{gid}?gid={gid}&view=2"
+        r = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+        assert r.ok, f"URL: {url} Status code: {r.status_code}"
+        print(r.text)
+        gallery_title = re.search('<title>(.*?)</title>', r.text).group(1).strip()
+        images_id = re.findall('<td id="([0-9]+)" align="center"  ?valign="top">', r.text)
+        gallery_title = re.sub(r'[-\s]+', "_", gallery_title)
+
+        def prepare_images_url(image_id: str) -> ImageItem:
+            url = f"https://www.imagefap.com/photo/{image_id}"
+            r =  requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+            try:
+                name = re.findall(r'<title>([a-zA-Z0-9_-]+)[.jpg|.JPG|.jpeg|.GIF|.gif|.PNG|.png]+ Porn Pic', r.text)[0]
+            except:
+                name = ""
+            matched = re.search(r'<script type="application/ld\+json">(.*?)</script>', r.text, flags=re.S)
+            info = json.loads(matched.group(1).strip())
+            image = ImageItem(image_id, name, info["contentUrl"], int(info["width"]), int(info["height"]))
+            return image
+
+        images = []
+        for image_id in images_id:
+            im = prepare_images_url(image_id)
+            images.append(im)
+            print(im)
+            time.sleep(1.1)
+        return gallery_title, images_id
         # url = parse.urljoin(ROOT, os.path.join("pictures", f"{str(gid)}/"))
         # params = {"view": "2"}
         # r = requests.get(url, params=params, headers=HEADERS, timeout=3)
@@ -233,16 +262,18 @@ class ImageFap(AbstractParser):
 
         # return list(zip(pid, src, name))
 
-    def parse(self, url: str) -> dict:
-        return
-        # if url.startswith("https://imagefap.com"):
-        #     p = urlparse(url)
-        #     gid = p.path.split("/")[-1]
-        # else:
-        #     raise ValueError(f'Invalid url: {url}. It should be full url or comic id.')
-        # data = self._fetch(gid)
+    def parse(self, url: str) -> Dict:
+        if url.startswith("https://imagefap.com"):
+            p = urlparse(url)
+            gid = p.path.split("/")[-1]
+        elif url.isdigit():
+            gid = url
+        else:
+            raise ValueError(f'Invalid url: {url}. It should be full url or comic id.')
+        metadata = self._fetch(gid)
         # data['url'] = url
-        # return data
+        return metadata
+
 
 class Pictoa(AbstractParser):
     def __init__(self):
@@ -275,6 +306,7 @@ class Pictoa(AbstractParser):
         # data['url'] = url
         # return data
 
+
 class ParserFactory:
     @staticmethod
     def create(website):
@@ -304,6 +336,8 @@ if __name__ == '__main__':
     # data = app.parse('https://www.99zipai.com/selfies/202010/110590.html')
     # print(data)
 
-    app = Motherless()
-    data = app.parse('https://motherless.com/GI6E08B47')
-    print(data)
+    # app = Motherless()
+    # data = app.parse('https://motherless.com/GI6E08B47')
+    # print(data)
+
+    pass

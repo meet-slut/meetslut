@@ -14,10 +14,16 @@ def download(urls, filenames, folder, auto_increment=False, num_threads=None):
     num_threads = num_threads or NUM_THREADS
     os.makedirs(folder, exist_ok=True)
     filenames = rename(urls, filenames, auto_increment)
-    save = functools.partial(saveImage, folder=folder, force_download=True)
-    # pool.imap ppol.starmap
-    results = ThreadPool(num_threads).starmap(save, zip(urls, filenames))
+    save = functools.partial(saveImage, folder=folder, force_download=False)
     logging.info(f"Found {len(urls)} images. Start download in {folder}...")
-    with tqdm(results, total=len(urls), ncols=100, desc=f"Download") as t:
-        for filename, filesize in t:
-            t.set_postfix({"name": filename, "size": f"{round(filesize/1024)} KB"})
+    if num_threads <= 1:
+        with tqdm(zip(urls, filenames), ncols=120, desc=f"Download") as t:
+            for url, filename in t:
+                filename, filesize = save(url, filename)
+                t.set_postfix({"name": filename, "size": f"{round(filesize/1024)} KB"})
+    else:
+        # pool.imap ppol.starmap
+        results = ThreadPool(num_threads).starmap(save, zip(urls, filenames))
+        with tqdm(results, total=len(urls), ncols=120, desc=f"Download") as t:
+            for filename, filesize in t:
+                t.set_postfix({"name": filename, "size": f"{round(filesize/1024)} KB"})
