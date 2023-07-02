@@ -1,6 +1,7 @@
 tqdm
-requests
 lxml
+requests
 beautifulsoup4
 pylint
-boto3
+pytest
+# boto3

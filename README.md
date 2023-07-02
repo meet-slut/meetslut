@@ -1,8 +1,6 @@
 # meetslut
 > A fancy command line tool to download slut👠 pictures from internt.
 
-<!-- ![010116-220-C](https://upload-images.jianshu.io/upload_images/13843118-f46b965a1c878a67.png) -->
-
 ## 🚀 Support website
 > 📢 Checked on 2022.11.05
 
@@ -19,9 +17,14 @@
 ❗️ proxy needed for mainland user
 
 ## 🔨 Installation
+### Install from whl
+```bash
+pip install 
 ```
-python -m venv meetslut
-source /ide/meetslut/bin/activate
+### Install from source code
+```bash
+# python -m venv meetslut
+# source /ide/meetslut/bin/activate
 git clone https://gitee.com/crj1998/meetslut.git
 cd meetslut
 pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple

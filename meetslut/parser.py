@@ -1,14 +1,19 @@
-from typing import Union, Optional
+""" given url, parse the html and return metadata
+"""
+
+from typing import Union, Optional, Dict
 from abc import ABCMeta, abstractmethod
-import re, json
-import time, random
+import re
+import json
+import time
+import random
 from urllib.parse import urlparse
 import requests
-from bs4 import BeautifulSoup
-from bs4.element import Tag
 from lxml import etree
+from bs4.element import Tag
+from bs4 import BeautifulSoup
 
-from meetslut.config import GET_CFG
+from meetslut.config import HEADERS, TIMEOUT
 
 class AbstractParser(metaclass=ABCMeta):
     _instance = None
@@ -17,35 +22,42 @@ class AbstractParser(metaclass=ABCMeta):
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self, name):
+    def __init__(self, name: str):
         self.name = name
 
     @abstractmethod
     def parse(self):
-        pass
+        raise NotImplementedError
 
     @staticmethod
-    def get(url, **kwargs):
-        r = requests.get(url, **kwargs, **GET_CFG)
+    def get(url: str, **kwargs) -> requests.Response:
+        getargs = {
+            "headers": HEADERS,
+            "timeout": TIMEOUT
+        }
+        getargs.update(kwargs)
+        r: requests.Response = requests.get(url, **getargs)
         assert r.status_code == 200, f'Statuc code: {r.status_code} @ url: {url}'
         r.encoding = r.apparent_encoding
-        return r.text
+        return r
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'{self.__class__.__name__}()'
+
 
 class Caitlin(AbstractParser):
     def __init__(self):
         super().__init__('Caitlin')
         self.indexed = True
 
-    def _fetch(self, comic_id: Union[str, int]) -> dict:
+    def _fetch(self, comic_id: Union[str, int]) -> Dict:
         """ get the title and image urls according to comic id."""
         params = {
             "route": "comic/readOnline",
             "comic_id": str(comic_id)
         }
-        html = self.get("https://caitlin.top/index.php", params=params)
+        r = self.get("https://caitlin.top/index.php", params=params)
+        html = r.text
         title = re.search(r'<span class="d">(.+)<span>', html).group(1)
         title = title.replace(" ", "")
         root_url = re.search(r'HTTP_IMAGE = "(//.+)";', html).group(1)
@@ -53,6 +65,8 @@ class Caitlin(AbstractParser):
         images = re.search(r'Image_List = (\[.+\]);', html).group(1)
         images = json.loads(images)
         data = {
+            'url': r.url,
+            'comic_id': str(comic_id),
             'title': title,
             'images': [
                 {'name': str(i), 'url': f"https:{root_url}{image['sort']}.{image['extension']}"}
@@ -61,10 +75,10 @@ class Caitlin(AbstractParser):
         }
         return data
 
-    def parse(self, url: str) -> dict:
+    def parse(self, url: str) -> Dict:
         # get comic id
         if url.startswith('https://caitlin.top/index.php'):
-            matched = re.search('comic_id=(\d+)', url)
+            matched = re.search(r'comic_id=(\d+)', url)
             assert matched is not None, f'No valid comic_id in url: {url}.'
             comic_id = matched.group(1)
         elif url.isdigit():
@@ -72,10 +86,9 @@ class Caitlin(AbstractParser):
         else:
             raise ValueError(f'Invalid url: {url}. It should be full url or comic id.')
 
-        data = self._fetch(comic_id)
-        data['url'] = url
+        metadata = self._fetch(comic_id)
 
-        return data
+        return metadata
 
 
 class Zipai(AbstractParser):
@@ -149,7 +162,7 @@ class Motherless(AbstractParser):
             return html
         html = get(page)
         title = html.xpath("//h2[@id='view-upload-title']/text()")[0].strip()
-        amount = int(re.search("Images \(([0-9]*)\)", html.xpath("//span[@class='active']/text()")[0]).group(1))
+        amount = int(re.search(r"Images \(([0-9]*)\)", html.xpath("//span[@class='active']/text()")[0]).group(1))
         srcs = html.xpath("//img[@class='static']/@data-strip-src")
         names = html.xpath("//img[@class='static']/@alt")
         codes.extend([{'name': name, 'url': src.replace("thumbs", "images")} for src, name in zip(srcs, names)])

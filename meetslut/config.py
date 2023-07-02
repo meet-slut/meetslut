@@ -2,7 +2,12 @@
 NUM_THREADS = 4
 # requests max retry
 RETRY = 3
+MAX_RETRY = 3
 # requests config
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.183 Safari/537.36"
+}
+TIMEOUT = 7
 GET_CFG = {
     'headers': {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.183 Safari/537.36"
